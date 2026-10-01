@@ -36,3 +36,4 @@ try { s.getDatabase("connecthub").follows.insertOne({ followerId: ObjectId("..."
 ```
 
 Vector search preparation: `Post.embedding` is reserved for Atlas Vector Search embeddings; create an Atlas vector index after populating it from your embedding provider.
+# connecthub
