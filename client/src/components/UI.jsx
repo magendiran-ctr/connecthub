@@ -337,7 +337,11 @@ export function PostCard({ post, onRefresh, onDeleted }) {
             <Link to={`/posts/${post._id}`} className="icon-btn">
               <MessageCircle size={20} />
             </Link>
-            <button onClick={share} aria-label="Share post" className="icon-btn">
+            <button
+              onClick={share}
+              aria-label="Share post"
+              className="icon-btn"
+            >
               <Send size={19} />
             </button>
             <button

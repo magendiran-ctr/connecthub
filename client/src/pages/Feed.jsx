@@ -54,7 +54,11 @@ function ChannelCard({ channel, onFollow }) {
           onClick={() => onFollow(channel)}
           className="btn-secondary px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {channel.isSelf ? "You" : channel.isFollowing ? "Following" : "Follow"}
+          {channel.isSelf
+            ? "You"
+            : channel.isFollowing
+              ? "Following"
+              : "Follow"}
         </button>
       </div>
     </article>

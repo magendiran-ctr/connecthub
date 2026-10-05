@@ -52,7 +52,11 @@ export function CreatePost() {
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <input
           className="field"
-          placeholder={f.mediaType === "reel" ? "Reel cover image URL" : "Image URL (optional)"}
+          placeholder={
+            f.mediaType === "reel"
+              ? "Reel cover image URL"
+              : "Image URL (optional)"
+          }
           value={f.imageUrl}
           onChange={(e) => setF({ ...f, imageUrl: e.target.value })}
         />
