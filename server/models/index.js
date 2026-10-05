@@ -35,6 +35,15 @@ const user = new Schema(
         "fashion",
         "travel",
         "music",
+        "fitness",
+        "comedy",
+        "lifestyle",
+        "aesthetics",
+        "food",
+        "gaming",
+        "art",
+        "beauty",
+        "education",
       ],
       default: "creator",
       index: true,
@@ -47,6 +56,7 @@ const user = new Schema(
 const post = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    seedKey: { type: String },
     content: { type: String, maxlength: 2000, default: "" },
     imageUrl: String,
     mediaType: { type: String, enum: ["post", "reel"], default: "post" },
@@ -65,6 +75,7 @@ const post = new Schema(
   { timestamps: true },
 );
 post.index({ userId: 1, createdAt: -1 });
+post.index({ seedKey: 1 }, { unique: true, sparse: true });
 post.index({ userId: 1, likesCount: -1, createdAt: -1 });
 post.index({ userId: 1, viewsCount: -1, createdAt: -1 });
 post.index({ createdAt: -1 });

@@ -14,6 +14,7 @@ export function CreatePost() {
     [f, setF] = useState({
       content: "",
       imageUrl: "",
+      mediaType: "post",
       hashtags: "",
       location: "",
       privacy: "public",
@@ -51,7 +52,7 @@ export function CreatePost() {
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <input
           className="field"
-          placeholder="Image URL (optional)"
+          placeholder={f.mediaType === "reel" ? "Reel cover image URL" : "Image URL (optional)"}
           value={f.imageUrl}
           onChange={(e) => setF({ ...f, imageUrl: e.target.value })}
         />
@@ -67,6 +68,14 @@ export function CreatePost() {
           value={f.location}
           onChange={(e) => setF({ ...f, location: e.target.value })}
         />
+        <select
+          className="field"
+          value={f.mediaType}
+          onChange={(e) => setF({ ...f, mediaType: e.target.value })}
+        >
+          <option value="post">Photo post</option>
+          <option value="reel">Reel</option>
+        </select>
         <select
           className="field"
           value={f.privacy}

@@ -133,7 +133,40 @@ r.get("/channels", protect, async (req, res, next) => {
         },
       },
       { $addFields: { followersCount: { $size: "$followers" } } },
-      { $project: { password: 0, email: 0, followers: 0 } },
+      {
+        $lookup: {
+          from: "follows",
+          let: { channelId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$followingId", "$$channelId"] },
+                    { $eq: ["$followerId", req.user._id] },
+                  ],
+                },
+              },
+            },
+            { $limit: 1 },
+          ],
+          as: "viewerFollowing",
+        },
+      },
+      {
+        $addFields: {
+          isFollowing: { $gt: [{ $size: "$viewerFollowing" }, 0] },
+          isSelf: { $eq: ["$_id", req.user._id] },
+        },
+      },
+      {
+        $project: {
+          password: 0,
+          email: 0,
+          followers: 0,
+          viewerFollowing: 0,
+        },
+      },
       { $sort: { isVerified: -1, followersCount: -1 } },
       { $limit: 16 },
     ]);
@@ -300,7 +333,7 @@ r.get(
     }
   },
 );
-const enrich = [
+const enrich = (viewerId) => [
   {
     $lookup: {
       from: "users",
@@ -310,13 +343,68 @@ const enrich = [
     },
   },
   { $unwind: "$author" },
-  { $project: { "author.password": 0, "author.email": 0 } },
+  {
+    $lookup: {
+      from: "likes",
+      let: { postId: "$_id" },
+      pipeline: [
+        {
+          $match: {
+            $expr: {
+              $and: [
+                { $eq: ["$postId", "$$postId"] },
+                { $eq: ["$userId", viewerId] },
+              ],
+            },
+          },
+        },
+        { $limit: 1 },
+        { $project: { _id: 1 } },
+      ],
+      as: "viewerLike",
+    },
+  },
+  {
+    $lookup: {
+      from: "savedposts",
+      let: { postId: "$_id" },
+      pipeline: [
+        {
+          $match: {
+            $expr: {
+              $and: [
+                { $eq: ["$postId", "$$postId"] },
+                { $eq: ["$userId", viewerId] },
+              ],
+            },
+          },
+        },
+        { $limit: 1 },
+        { $project: { _id: 1 } },
+      ],
+      as: "viewerSave",
+    },
+  },
+  {
+    $addFields: {
+      liked: { $gt: [{ $size: "$viewerLike" }, 0] },
+      saved: { $gt: [{ $size: "$viewerSave" }, 0] },
+    },
+  },
+  {
+    $project: {
+      "author.password": 0,
+      viewerLike: 0,
+      viewerSave: 0,
+    },
+  },
 ];
 r.post("/posts", protect, async (req, res, next) => {
   try {
     const {
       content = "",
       imageUrl,
+      mediaType = "post",
       hashtags = [],
       location,
       privacy,
@@ -328,6 +416,7 @@ r.post("/posts", protect, async (req, res, next) => {
         userId: req.user._id,
         content,
         imageUrl,
+        mediaType,
         hashtags: hashtags.map((x) => x.replace("#", "").toLowerCase()),
         location,
         privacy,
@@ -358,7 +447,7 @@ r.get("/posts/feed", protect, async (req, res, next) => {
     const [posts, total] = await Promise.all([
       Post.aggregate([
         match,
-        ...enrich,
+        ...enrich(req.user._id),
         { $sort: sort },
         { $skip: (page - 1) * limit },
         { $limit: limit },
@@ -387,7 +476,7 @@ r.get("/posts/explore", protect, async (req, res, next) => {
     res.json(
       await Post.aggregate([
         { $match: { privacy: "public", imageUrl: { $ne: "" } } },
-        ...enrich,
+        ...enrich(req.user._id),
         { $sort: { likesCount: -1, viewsCount: -1, createdAt: -1 } },
         { $limit: limit },
       ]),
@@ -406,7 +495,7 @@ r.get("/users/:id/posts", protect, async (req, res, next) => {
             privacy: { $ne: "private" },
           },
         },
-        ...enrich,
+        ...enrich(req.user._id),
         { $sort: { createdAt: -1 } },
       ]),
     );
@@ -418,7 +507,7 @@ r.get("/posts/:id", protect, async (req, res, next) => {
   try {
     const x = await Post.aggregate([
       { $match: { _id: new mongoose.Types.ObjectId(req.params.id) } },
-      ...enrich,
+      ...enrich(req.user._id),
     ]);
     if (!x[0]) return res.status(404).json({ message: "Post not found" });
     res.json(x[0]);
@@ -435,6 +524,7 @@ r.put("/posts/:id", protect, async (req, res, next) => {
     const {
       content = "",
       imageUrl = "",
+      mediaType = "post",
       hashtags = [],
       location = "",
       privacy = "public",
@@ -444,6 +534,7 @@ r.put("/posts/:id", protect, async (req, res, next) => {
     Object.assign(p, {
       content: String(content).trim(),
       imageUrl: String(imageUrl).trim(),
+      mediaType,
       hashtags: Array.isArray(hashtags)
         ? hashtags.map((x) => String(x).replace("#", "").toLowerCase())
         : [],
@@ -590,7 +681,7 @@ r.get("/saved-posts", protect, async (req, res, next) => {
     res.json(
       await Post.aggregate([
         { $match: { _id: { $in: ids } } },
-        ...enrich,
+        ...enrich(req.user._id),
         { $sort: { createdAt: -1 } },
       ]),
     );
@@ -669,7 +760,7 @@ r.get("/admin/analytics", protect, admin, async (req, res, next) => {
         Post.aggregate([
           { $sort: { likesCount: -1 } },
           { $limit: 5 },
-          ...enrich,
+          ...enrich(req.user._id),
         ]),
         Post.aggregate([
           {

@@ -151,6 +151,7 @@ export const EmptyState = ({
 export function PostCard({ post, onRefresh, onDeleted }) {
   const { user } = useAuth();
   const liked = post.liked;
+  const [saved, setSaved] = useState(Boolean(post.saved));
   const isOwner = String(user?.id) === String(post.userId || post.author?._id);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -168,6 +169,30 @@ export function PostCard({ post, onRefresh, onDeleted }) {
       onRefresh?.();
     } catch {
       toast.error("Could not update like");
+    }
+  };
+
+  const toggleSaved = async () => {
+    try {
+      await api[saved ? "delete" : "post"](`/posts/${post._id}/save`);
+      setSaved(!saved);
+      toast.success(saved ? "Removed from saved posts" : "Post saved");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Could not save post");
+    }
+  };
+
+  const share = async () => {
+    const url = `${window.location.origin}/posts/${post._id}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "ConnectHub post", url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast.success("Post link copied");
+      }
+    } catch (error) {
+      if (error.name !== "AbortError") toast.error("Could not share post");
     }
   };
 
@@ -288,11 +313,18 @@ export function PostCard({ post, onRefresh, onDeleted }) {
               {post.content}
             </p>
             {post.imageUrl && (
-              <img
-                className="max-h-[560px] w-full object-cover"
-                src={post.imageUrl}
-                alt=""
-              />
+              <div className="relative">
+                <img
+                  className="max-h-[560px] w-full object-cover"
+                  src={post.imageUrl}
+                  alt=""
+                />
+                {post.mediaType === "reel" && (
+                  <span className="absolute right-3 top-3 rounded-lg bg-black/70 px-2.5 py-1 text-xs font-bold text-white">
+                    REEL
+                  </span>
+                )}
+              </div>
             )}
           </Link>
           <div className="flex items-center gap-1 p-3">
@@ -305,11 +337,15 @@ export function PostCard({ post, onRefresh, onDeleted }) {
             <Link to={`/posts/${post._id}`} className="icon-btn">
               <MessageCircle size={20} />
             </Link>
-            <button className="icon-btn">
+            <button onClick={share} aria-label="Share post" className="icon-btn">
               <Send size={19} />
             </button>
-            <button className="icon-btn ml-auto">
-              <Bookmark size={20} />
+            <button
+              onClick={toggleSaved}
+              aria-label={saved ? "Remove saved post" : "Save post"}
+              className={`icon-btn ml-auto ${saved ? "text-brand-500" : ""}`}
+            >
+              <Bookmark size={20} fill={saved ? "currentColor" : "none"} />
             </button>
           </div>
           <div className="px-4 pb-4 text-xs font-semibold text-slate-600">

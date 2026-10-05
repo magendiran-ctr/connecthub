@@ -50,10 +50,11 @@ function ChannelCard({ channel, onFollow }) {
           {formatFollowers(channel.followersCount)} followers
         </span>
         <button
+          disabled={channel.isSelf}
           onClick={() => onFollow(channel)}
-          className="btn-secondary px-3 py-1.5 text-xs"
+          className="btn-secondary px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Follow
+          {channel.isSelf ? "You" : channel.isFollowing ? "Following" : "Follow"}
         </button>
       </div>
     </article>
@@ -169,11 +170,26 @@ export default function Feed() {
     }
   };
   const follow = async (channel) => {
+    const isFollowing = channel.isFollowing;
     try {
-      await api.post(`/users/${channel._id}/follow`);
-      setChannels((items) => items.filter((item) => item._id !== channel._id));
+      await api[isFollowing ? "delete" : "post"](
+        `/users/${channel._id}/follow`,
+      );
+      setChannels((items) =>
+        items.map((item) =>
+          item._id === channel._id
+            ? {
+                ...item,
+                isFollowing: !isFollowing,
+                followersCount: item.followersCount + (isFollowing ? -1 : 1),
+              }
+            : item,
+        ),
+      );
       if (mode === "feed") load("feed", 1, sort);
-    } catch {}
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Could not update follow");
+    }
   };
   return (
     <div className="space-y-5">
