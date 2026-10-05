@@ -1,2 +1,157 @@
-import {useState} from 'react';import {Link,useNavigate} from 'react-router-dom';import {useAuth} from '../context/AuthContext';import {toast} from 'sonner';
-export default function Auth({register=false}){const {login}=useAuth(),nav=useNavigate(),[form,setForm]=useState({name:'',username:'',email:'',password:'',confirm:'',profileImage:''}),[busy,setBusy]=useState(false);const submit=async e=>{e.preventDefault();if(register&&form.password!==form.confirm)return toast.error('Passwords do not match');const data=register?{name:form.name.trim(),username:form.username.trim(),email:form.email.trim(),password:form.password,profileImage:form.profileImage.trim()}:{email:form.email.trim(),password:form.password};setBusy(true);try{await login(data,register?'/auth/register':'/auth/login');toast.success(register?'Welcome to ConnectHub!':'Welcome back!');nav('/')}catch(e){toast.error(e.response?.data?.message||(e.request?'Cannot reach the server. Start the API and try again.':'Could not continue'))}finally{setBusy(false)}};const input=(key,label,type='text')=><label className="block text-sm font-medium">{label}<input required={key!=='profileImage'} type={type} autoComplete={key==='password'?'current-password':key==='confirm'?'new-password':key==='email'?'username':undefined} value={form[key]} onChange={e=>setForm({...form,[key]:e.target.value})} className="field mt-1.5"/></label>;return <main className="grid min-h-screen place-items-center bg-gradient-to-br from-indigo-50 via-white to-violet-100 p-4"><form onSubmit={submit} className="card w-full max-w-md p-7 sm:p-9"><Link to="/" className="text-3xl font-black text-brand-500">Connect<span className="text-slate-800">Hub</span></Link><h1 className="mt-7 text-2xl font-bold">{register?'Create your account':'Welcome back'}</h1><p className="mt-1 mb-6 text-sm text-slate-500">{register?'Build your professional community.':'Sign in to see what your community is sharing.'}</p><div className="space-y-4">{register&&<>{input('name','Full name')}{input('username','Username')}</>}{input('email',register?'Email':'Email or username',register?'email':'text')}{input('password','Password','password')}{register&&<>{input('confirm','Confirm password','password')}{input('profileImage','Profile image URL (optional)')}</>}</div>{!register&&<div className="mt-4 flex justify-between text-sm"><label className="text-slate-600"><input type="checkbox" className="mr-1"/> Remember me</label><a className="text-brand-500">Forgot password?</a></div>}<button disabled={busy} className="btn-primary mt-6 w-full">{busy?'Please wait…':register?'Create account':'Log in'}</button><p className="mt-5 text-center text-sm text-slate-500">{register?'Already have an account?':'New to ConnectHub?'} <Link className="font-bold text-brand-500" to={register?'/login':'/register'}>{register?'Log in':'Register'}</Link></p></form></main>}
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { toast } from "sonner";
+
+export default function Auth({ register = false }) {
+  const { login } = useAuth();
+  const nav = useNavigate();
+
+  const [form, setForm] = useState({
+    name: "",
+    username: "",
+    email: "",
+    password: "",
+    confirm: "",
+    profileImage: "",
+  });
+
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+
+    if (register && form.password !== form.confirm) {
+      return toast.error("Passwords do not match");
+    }
+
+    const data = register
+      ? {
+          name: form.name.trim(),
+          username: form.username.trim(),
+          email: form.email.trim(),
+          password: form.password,
+          profileImage: form.profileImage.trim(),
+        }
+      : {
+          email: form.email.trim(),
+          password: form.password,
+        };
+
+    setBusy(true);
+
+    try {
+      await login(data, register ? "/auth/register" : "/auth/login");
+
+      toast.success(register ? "Welcome to ConnectHub!" : "Welcome back!");
+
+      nav("/");
+    } catch (e) {
+      toast.error(
+        e.response?.data?.message ||
+          (e.request
+            ? "Cannot reach the server. Start the API and try again."
+            : "Could not continue"),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const input = (key, label, type = "text") => (
+    <label className="block text-sm font-medium">
+      {label}
+
+      <input
+        required={key !== "profileImage"}
+        type={type}
+        autoComplete={
+          key === "password"
+            ? "current-password"
+            : key === "confirm"
+              ? "new-password"
+              : key === "email"
+                ? "username"
+                : undefined
+        }
+        value={form[key]}
+        onChange={(e) =>
+          setForm({
+            ...form,
+            [key]: e.target.value,
+          })
+        }
+        className="field mt-1.5"
+      />
+    </label>
+  );
+
+  return (
+    <main className="grid min-h-screen place-items-center bg-gradient-to-br from-indigo-50 via-white to-violet-100 p-4">
+      <form onSubmit={submit} className="card w-full max-w-md p-7 sm:p-9">
+        <Link to="/" className="text-3xl font-black text-brand-500">
+          Connect<span className="text-slate-800">Hub</span>
+        </Link>
+
+        <h1 className="mt-7 text-2xl font-bold">
+          {register ? "Create your account" : "Welcome back"}
+        </h1>
+
+        <p className="mt-1 mb-6 text-sm text-slate-500">
+          {register
+            ? "Build your professional community."
+            : "Sign in to see what your community is sharing."}
+        </p>
+
+        <div className="space-y-4">
+          {register && (
+            <>
+              {input("name", "Full name")}
+              {input("username", "Username")}
+            </>
+          )}
+
+          {input(
+            "email",
+            register ? "Email" : "Email or username",
+            register ? "email" : "text",
+          )}
+
+          {input("password", "Password", "password")}
+
+          {register && (
+            <>
+              {input("confirm", "Confirm password", "password")}
+              {input("profileImage", "Profile image URL (optional)")}
+            </>
+          )}
+        </div>
+
+        {!register && (
+          <div className="mt-4 flex justify-between text-sm">
+            <label className="text-slate-600">
+              <input type="checkbox" className="mr-1" />
+              Remember me
+            </label>
+
+            <a className="text-brand-500">Forgot password?</a>
+          </div>
+        )}
+
+        <button disabled={busy} className="btn-primary mt-6 w-full">
+          {busy ? "Please wait…" : register ? "Create account" : "Log in"}
+        </button>
+
+        <p className="mt-5 text-center text-sm text-slate-500">
+          {register ? "Already have an account?" : "New to ConnectHub?"}{" "}
+          <Link
+            className="font-bold text-brand-500"
+            to={register ? "/login" : "/register"}
+          >
+            {register ? "Log in" : "Register"}
+          </Link>
+        </p>
+      </form>
+    </main>
+  );
+}
