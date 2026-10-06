@@ -326,8 +326,37 @@ export function PostDetails() {
   );
 }
 export function Notifications() {
-  const [items, setItems] = useState();
-  useEffect(() => api.get("/notifications").then((r) => setItems(r.data)), []);
+  const [items, setItems] = useState(),
+    [error, setError] = useState(""),
+    [reload, setReload] = useState(0);
+  useEffect(() => {
+    let active = true;
+    setError("");
+    api
+      .get("/notifications")
+      .then((r) => {
+        if (active) setItems(r.data);
+      })
+      .catch((e) => {
+        if (active)
+          setError(e.response?.data?.message || "Could not load notifications");
+      });
+    return () => {
+      active = false;
+    };
+  }, [reload]);
+  if (!items && error)
+    return (
+      <section className="card p-5">
+        <p className="text-sm text-rose-600">{error}</p>
+        <button
+          className="btn-secondary mt-3"
+          onClick={() => setReload((value) => value + 1)}
+        >
+          Try again
+        </button>
+      </section>
+    );
   if (!items) return <LoadingSkeleton />;
   return (
     <section className="card p-5">
@@ -340,10 +369,16 @@ export function Notifications() {
                 api
                   .put(`/notifications/${n._id}/read`)
                   .then(() =>
-                    setItems(
-                      items.map((x) =>
+                    setItems((current) =>
+                      current.map((x) =>
                         x._id === n._id ? { ...x, isRead: true } : x,
                       ),
+                    ),
+                  )
+                  .catch((e) =>
+                    toast.error(
+                      e.response?.data?.message ||
+                        "Could not update notification",
                     ),
                   )
               }
@@ -369,13 +404,42 @@ export function Notifications() {
   );
 }
 export function Saved() {
-  const [posts, setPosts] = useState();
-  useEffect(() => api.get("/saved-posts").then((r) => setPosts(r.data)), []);
+  const [posts, setPosts] = useState(),
+    [error, setError] = useState(""),
+    [reload, setReload] = useState(0);
+  useEffect(() => {
+    let active = true;
+    setError("");
+    api
+      .get("/saved-posts")
+      .then((r) => {
+        if (active) setPosts(r.data);
+      })
+      .catch((e) => {
+        if (active)
+          setError(e.response?.data?.message || "Could not load saved posts");
+      });
+    return () => {
+      active = false;
+    };
+  }, [reload]);
   return (
     <div className="space-y-5">
       <h1 className="text-xl font-bold">Saved posts</h1>
       {!posts ? (
-        <LoadingSkeleton />
+        error ? (
+          <section className="card p-5">
+            <p className="text-sm text-rose-600">{error}</p>
+            <button
+              className="btn-secondary mt-3"
+              onClick={() => setReload((value) => value + 1)}
+            >
+              Try again
+            </button>
+          </section>
+        ) : (
+          <LoadingSkeleton />
+        )
       ) : posts.length ? (
         posts.map((p) => <PostCard key={p._id} post={p} />)
       ) : (
@@ -455,7 +519,12 @@ export function Messages() {
     [users, setUsers] = useState([]),
     [peer, setPeer] = useState(),
     [messages, setMessages] = useState([]),
-    [text, setText] = useState("");
+    [text, setText] = useState(""),
+    [usersError, setUsersError] = useState(""),
+    [messagesError, setMessagesError] = useState(""),
+    [usersReload, setUsersReload] = useState(0),
+    [messagesReload, setMessagesReload] = useState(0),
+    [messagesLoading, setMessagesLoading] = useState(false);
   const getAutoReply = (input = "") => {
     const v = input.toLowerCase().trim();
     if (!v) return "Thanks for your message!";
@@ -471,38 +540,86 @@ export function Messages() {
     if (/love|like|like it/.test(v)) return "That sounds lovely!";
     return "Thanks for your message! I’ll get back to you soon.";
   };
-  useEffect(
-    () => api.get("/users/search?q=").then((r) => setUsers(r.data)),
-    [],
-  );
   useEffect(() => {
-    if (peer) api.get(`/messages/${peer._id}`).then((r) => setMessages(r.data));
-  }, [peer]);
+    let active = true;
+    setUsersError("");
+    api
+      .get("/users/search?q=")
+      .then((r) => {
+        if (active) setUsers(r.data);
+      })
+      .catch((e) => {
+        if (active)
+          setUsersError(e.response?.data?.message || "Could not load users");
+      });
+    return () => {
+      active = false;
+    };
+  }, [usersReload]);
+  useEffect(() => {
+    if (!peer) return;
+    let active = true;
+    setMessages([]);
+    setMessagesError("");
+    setMessagesLoading(true);
+    api
+      .get(`/messages/${peer._id}`)
+      .then((r) => {
+        if (active) setMessages(r.data);
+      })
+      .catch((e) => {
+        if (active)
+          setMessagesError(
+            e.response?.data?.message || "Could not load messages",
+          );
+      })
+      .finally(() => {
+        if (active) setMessagesLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [peer, messagesReload]);
   const send = async (e) => {
     e.preventDefault();
     if (!text.trim() || !peer) return;
     const clean = text.trim();
-    const r = await api.post("/messages", {
-      receiverId: peer._id,
-      message: clean,
-    });
-    setMessages((prev) => [...prev, r.data]);
-    setText("");
-    window.setTimeout(() => {
-      const reply = {
-        _id: Date.now() + Math.random(),
-        senderId: peer._id,
-        receiverId: user?.id || peer._id,
-        message: getAutoReply(clean),
-        createdAt: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, reply]);
-    }, 700);
+    try {
+      const r = await api.post("/messages", {
+        receiverId: peer._id,
+        message: clean,
+      });
+      setMessages((prev) => [...prev, r.data]);
+      setText("");
+      window.setTimeout(() => {
+        const reply = {
+          _id: Date.now() + Math.random(),
+          senderId: peer._id,
+          receiverId: user?.id || peer._id,
+          message: getAutoReply(clean),
+          createdAt: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, reply]);
+      }, 700);
+    } catch (e) {
+      toast.error(e.response?.data?.message || "Could not send message");
+    }
   };
   return (
     <div className="card flex h-[calc(100vh-8rem)] overflow-hidden">
       <aside className="w-2/5 border-r p-3">
         <h1 className="mb-3 font-bold">Message</h1>
+        {usersError && (
+          <div className="mb-2 text-xs text-rose-600">
+            {usersError}{" "}
+            <button
+              className="underline"
+              onClick={() => setUsersReload((value) => value + 1)}
+            >
+              Try again
+            </button>
+          </div>
+        )}
         {users.map((u) => (
           <button
             onClick={() => setPeer(u)}
@@ -524,14 +641,28 @@ export function Messages() {
               </span>
             </div>
             <div className="flex-1 space-y-2 overflow-auto p-4">
-              {messages.map((m) => (
-                <p
-                  key={m._id}
-                  className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${m.senderId === peer._id ? "bg-slate-100" : "ml-auto bg-brand-500 text-white"}`}
-                >
-                  {m.message}
+              {messagesLoading ? (
+                <p className="text-sm text-slate-400">Loading messages…</p>
+              ) : messagesError ? (
+                <p className="text-sm text-rose-600">
+                  {messagesError}{" "}
+                  <button
+                    className="underline"
+                    onClick={() => setMessagesReload((value) => value + 1)}
+                  >
+                    Try again
+                  </button>
                 </p>
-              ))}
+              ) : (
+                messages.map((m) => (
+                  <p
+                    key={m._id}
+                    className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${m.senderId === peer._id ? "bg-slate-100" : "ml-auto bg-brand-500 text-white"}`}
+                  >
+                    {m.message}
+                  </p>
+                ))
+              )}
             </div>
             <form onSubmit={send} className="flex gap-2 border-t p-3">
               <input
