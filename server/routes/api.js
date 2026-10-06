@@ -689,33 +689,45 @@ r.get("/saved-posts", protect, async (req, res, next) => {
     next(e);
   }
 });
-r.get("/notifications", protect, async (req, res) =>
-  res.json(
-    await Notification.find({ recipientId: req.user._id })
-      .populate("senderId", "name username profileImage")
-      .sort({ createdAt: -1 })
-      .limit(50),
-  ),
-);
-r.put("/notifications/:id/read", protect, async (req, res) =>
-  res.json(
-    await Notification.findOneAndUpdate(
-      { _id: req.params.id, recipientId: req.user._id },
-      { isRead: true },
-      { new: true },
-    ),
-  ),
-);
-r.get("/messages/:userId", protect, async (req, res) =>
-  res.json(
-    await Message.find({
-      $or: [
-        { senderId: req.user._id, receiverId: req.params.userId },
-        { senderId: req.params.userId, receiverId: req.user._id },
-      ],
-    }).sort({ createdAt: 1 }),
-  ),
-);
+r.get("/notifications", protect, async (req, res, next) => {
+  try {
+    res.json(
+      await Notification.find({ recipientId: req.user._id })
+        .populate("senderId", "name username profileImage")
+        .sort({ createdAt: -1 })
+        .limit(50),
+    );
+  } catch (e) {
+    next(e);
+  }
+});
+r.put("/notifications/:id/read", protect, async (req, res, next) => {
+  try {
+    res.json(
+      await Notification.findOneAndUpdate(
+        { _id: req.params.id, recipientId: req.user._id },
+        { isRead: true },
+        { new: true },
+      ),
+    );
+  } catch (e) {
+    next(e);
+  }
+});
+r.get("/messages/:userId", protect, async (req, res, next) => {
+  try {
+    res.json(
+      await Message.find({
+        $or: [
+          { senderId: req.user._id, receiverId: req.params.userId },
+          { senderId: req.params.userId, receiverId: req.user._id },
+        ],
+      }).sort({ createdAt: 1 }),
+    );
+  } catch (e) {
+    next(e);
+  }
+});
 r.post("/messages", protect, async (req, res, next) => {
   try {
     const m = await Message.create({
