@@ -105,8 +105,38 @@ export function CreatePost() {
 export function Profile() {
   const { id } = useParams(),
     { user } = useAuth(),
-    [p, setP] = useState();
-  useEffect(() => api.get(`/users/${id}`).then((r) => setP(r.data)), [id]);
+    [p, setP] = useState(),
+    [error, setError] = useState(""),
+    [reload, setReload] = useState(0);
+  useEffect(() => {
+    let active = true;
+    setP(undefined);
+    setError("");
+    api
+      .get(`/users/${id}`)
+      .then((r) => {
+        if (active) setP(r.data);
+      })
+      .catch((e) => {
+        if (active)
+          setError(e.response?.data?.message || "Could not load this profile");
+      });
+    return () => {
+      active = false;
+    };
+  }, [id, reload]);
+  if (error)
+    return (
+      <section className="card p-5">
+        <p className="text-sm text-rose-600">{error}</p>
+        <button
+          className="btn-secondary mt-3"
+          onClick={() => setReload((value) => value + 1)}
+        >
+          Try again
+        </button>
+      </section>
+    );
   if (!p) return <LoadingSkeleton />;
   const self = p.id === user?.id;
   const follow = async () => {
@@ -453,15 +483,22 @@ export function Saved() {
 }
 export function Settings() {
   const { user, setUser, logout } = useAuth(),
-    [f, setF] = useState(user || {});
+    [f, setF] = useState(user || {}),
+    [saving, setSaving] = useState(false);
+  useEffect(() => {
+    setF(user || {});
+  }, [user]);
   const save = async (e) => {
     e.preventDefault();
+    setSaving(true);
     try {
       const r = await api.put(`/users/${user.id}`, f);
       setUser(r.data);
       toast.success("Profile updated");
-    } catch {
-      toast.error("Unable to save");
+    } catch (e) {
+      toast.error(e.response?.data?.message || "Unable to save");
+    } finally {
+      setSaving(false);
     }
   };
   const removeAccount = async () => {
@@ -488,13 +525,16 @@ export function Settings() {
             {l}
             <input
               className="field mt-1"
+              disabled={saving}
               value={f[k] || ""}
               onChange={(e) => setF({ ...f, [k]: e.target.value })}
             />
           </label>
         ))}
         <div className="sm:col-span-2">
-          <button className="btn-primary">Save changes</button>
+          <button disabled={saving} className="btn-primary">
+            {saving ? "Saving…" : "Save changes"}
+          </button>
           <button
             type="button"
             onClick={logout}
